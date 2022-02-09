@@ -9,5 +9,5 @@
 - 在解码时使用`sync.Mutex`互斥锁来确保其他go协程往同一个缓冲区写入
 - 处理请求时使用`sync.WaitGroup`同步器来确保**一次连接**中，服务端能处理完**所有请求**后，再断开连接
 
-这里引用下网友**`panjianning`**的UML图:
+这里引用下网友`panjianning`的UML图:
 ![](img/codec_1.png)
