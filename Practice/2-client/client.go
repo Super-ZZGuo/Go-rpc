@@ -36,7 +36,7 @@ type Client struct {
 	cc codec.Codec
 	// 发起连接前的确认(请求类型/编码方式）
 	opt *Option
-	// 保证请求有序的发出
+	// 保证Client并发时可用性
 	sending sync.Mutex
 	// 每个请求的消息头
 	header codec.Header
@@ -76,6 +76,7 @@ func (client *Client) IsAvailable() bool {
 
 // registerCall 客户端注册rpc请求
 func (client *Client) registerCall(call *Call) (uint64, error) {
+	// 方法内部上锁 防止并发问题 -> 该方法被其他client调用
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	if client.closing || client.shutdown {
@@ -159,6 +160,7 @@ func (client *Client) Go(serviceMethod string, args, reply interface{}, done cha
 		Done:          done,
 	}
 	// 请求发送
+	// TODO 此处的send是同步等待的
 	client.send(call)
 	return call
 }
