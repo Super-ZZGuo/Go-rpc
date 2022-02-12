@@ -217,10 +217,10 @@ func NewClient(conn net.Conn, opt *Option) (*Client, error) {
 		_ = conn.Close()
 		return nil, err
 	}
-	return newClientCodec(f(conn), opt), nil
+	return NewClientCodec(f(conn), opt), nil
 }
 
-func newClientCodec(cc codec.Codec, opt *Option) *Client {
+func NewClientCodec(cc codec.Codec, opt *Option) *Client {
 	client := &Client{
 		seq:     1, // seq starts with 1, 0 means invalid call
 		cc:      cc,
