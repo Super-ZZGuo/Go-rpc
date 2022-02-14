@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"reflect"
 	"strings"
 	"sync"
@@ -63,9 +64,11 @@ func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 		log.Printf("rpc server: invalid codec type %s", opt.CodecType)
 		return
 	}
-
 	server.serveCodec(f(conn), &opt)
 }
+
+// invalidRequest 发生错误时候的 argv 占位符
+var invalidRequest = struct{}{}
 
 // serveCodec 编解码处理
 func (server *Server) serveCodec(cc codec.Codec, opt *Option) {
@@ -226,9 +229,6 @@ func (server *Server) handleRequest(cc codec.Codec, req *request, sending *sync.
 	}
 }
 
-// invalidRequest 发生错误时候的 argv 占位符
-var invalidRequest = struct{}{}
-
 // DefaultServer *Server的默认实例
 var DefaultServer = NewServer()
 
@@ -265,4 +265,44 @@ func (server *Server) Register(rcvr interface{}) error {
 // Register 以 DefaultServer 注册
 func Register(rcvr interface{}) error {
 	return DefaultServer.Register(rcvr)
+}
+
+const (
+	connected        = "200 Connected to Go RPC"
+	defaultRPCPath   = "/gorpc"
+	defaultDebugPath = "/debug/gorpc"
+)
+
+// ServeHTTP 实现 http.Handler 去接收RPC请求
+func (server *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "CONNECT" {
+		// 设置请求头
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		// 405
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = io.WriteString(w, "405 must CONNECT\n")
+		return
+	}
+	// TODO 使用Hijack使  HTTP/1.1 来支持 GRPC 的 stream rpc
+	conn, _, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		log.Print("rpc hijacking ", req.RemoteAddr, ": ", err.Error())
+		return
+	}
+	_, _ = io.WriteString(conn, "HTTP/1.0 "+connected+"\n\n")
+	server.ServeConn(conn)
+}
+
+// HandleHTTP 在rpcPath上注册RPC消息的HTTP处理程序
+//            在debugPath上注册调试处理程序
+func (server *Server) HandleHTTP() {
+	http.Handle(defaultRPCPath, server)
+	//  debugHTTP 实例绑定到地址 /debug/gorpc
+	http.Handle(defaultDebugPath, debugHTTP{server})
+	log.Println("rpc server debug path:", defaultDebugPath)
+}
+
+// HandleHTTP 默认服务器注册HTTP注册程序
+func HandleHTTP() {
+	DefaultServer.HandleHTTP()
 }
