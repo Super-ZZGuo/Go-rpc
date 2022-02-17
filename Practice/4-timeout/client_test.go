@@ -32,7 +32,7 @@ func TestClient_dialTimeout(t *testing.T) {
 
 	f := func(conn net.Conn, opt *Option) (client *Client, err error) {
 		_ = conn.Close()
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second * 10)
 		return nil, nil
 	}
 	// 设置超时为1s
@@ -40,7 +40,8 @@ func TestClient_dialTimeout(t *testing.T) {
 		_, err := dialTimeout(f, "tcp", l.Addr().String(), &Option{ConnectTimeout: time.Second})
 		_assert(err != nil && strings.Contains(err.Error(), "connect timeout"), "expect a timeout error")
 	})
-	// 设置超时为0s
+
+	// 设置超时为0s -> 不超时
 	t.Run("0", func(t *testing.T) {
 		_, err := dialTimeout(f, "tcp", l.Addr().String(), &Option{ConnectTimeout: 0})
 		_assert(err == nil, "0 means no limit")
@@ -55,17 +56,21 @@ func TestClient_Call(t *testing.T) {
 	go startServer(addrCh)
 	addr := <-addrCh
 	time.Sleep(time.Second)
+
 	// 客户端超时为1s 服务端无限制
 	t.Run("client timeout", func(t *testing.T) {
 		client, _ := Dial("tcp", addr)
+		// context对象
 		ctx, _ := context.WithTimeout(context.Background(), time.Second)
 		var reply int
 		err := client.Call(ctx, "Bar.Timeout", 1, &reply)
 		_assert(err != nil && strings.Contains(err.Error(), ctx.Err().Error()), "expect a timeout error")
 	})
+
 	// 服务端超时为1s 客户端无限制
 	t.Run("server handle timeout", func(t *testing.T) {
 		client, _ := Dial("tcp", addr, &Option{
+			// 处理超时1s
 			HandleTimeout: time.Second,
 		})
 		var reply int
