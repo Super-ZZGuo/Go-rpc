@@ -60,3 +60,32 @@
 
 >这里可能描述的不太好，后续会修订一下这个过程
 ![](img/service_1.png)
+
+
+## 4-timeout
+提供了超时处理的功能，提高了框架的可用性
+在如下地方提供了超时处理功能
+
+- 客户端**创建连接**时
+
+  - 使用子协程创建客户端时，执行后通过信道ch发送创建结果
+  - 如果`time.After(opt.ConnectTimeout)`先收到信息，则创建客户端超时，返回error
+
+
+- 客户端整个`client.call()`过程时
+
+  - 尝试使用context包创建具备超时检测能力的context对象来进行控制
+    
+    - ```go
+        ctx, _ := context.WithTimeout(context.Background(), time.Second)
+      
+        var reply int
+      
+        err := client.Call(ctx, "Bar.Timeout", 1, &reply)
+      ```
+
+- 服务端处理请求时
+
+  - 包括**反射调用方法处理结果**和**发送结果响应**两个过程
+  - 同样是基于`time.After`和`select、case`进行超时检测
+
